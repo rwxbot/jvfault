@@ -349,6 +349,9 @@ public class ModuleContainer {
                         method.setAccessible(true);
                         method.invoke(instance);
                     } catch (NoSuchMethodException ignored) {
+                        // 与 initMethod 处理保持一致：方法不存在即视为未配置销毁回调，
+                        // 静默跳过；执行失败则由下面 catch 记 error（销毁期异常不应中断
+                        // 整个容器关闭流程，所以只记不抛）。
                     } catch (Exception e) {
                         log.error("Failed to invoke destroyMethod '{}' on {}", destroyMethod, def.getName(), e);
                     }

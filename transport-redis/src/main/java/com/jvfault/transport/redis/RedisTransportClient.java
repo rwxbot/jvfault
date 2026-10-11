@@ -11,6 +11,8 @@ import io.lettuce.core.RedisURI;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.core.api.StatefulRedisConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -29,6 +31,8 @@ import java.util.concurrent.TimeUnit;
  * @author jvfault team
  */
 public class RedisTransportClient implements TransportClient {
+
+    private static final Logger log = LoggerFactory.getLogger(RedisTransportClient.class);
 
     private final ConnectionConfig config;
     private final MessageCodec codec = new JacksonMessageCodec();
@@ -63,7 +67,11 @@ public class RedisTransportClient implements TransportClient {
                     if (queue != null) {
                         queue.add(message);
                     }
-                } catch (Exception ignored) {
+                } catch (Exception e) {
+                    // 原来是完全空的 catch：回包解析失败或被丢弃时，请求方只会在
+                    // request() 里阻塞到超时，日志上却什么都看不到，排查时极易被
+                    // 误判成「服务端没回」。保留「跳过坏包继续监听」的行为，但留下痕迹。
+                    log.warn("Redis 回包解析失败，已丢弃该消息: {}", e.toString());
                 }
             }
         });

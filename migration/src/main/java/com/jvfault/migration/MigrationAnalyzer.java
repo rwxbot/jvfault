@@ -1,5 +1,8 @@
 package com.jvfault.migration;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,6 +17,8 @@ import java.util.stream.Stream;
  * @author jvfault team
  */
 public class MigrationAnalyzer {
+
+    private static final Logger log = LoggerFactory.getLogger(MigrationAnalyzer.class);
 
     private final List<RewriteRule> rules;
 
@@ -30,12 +35,16 @@ public class MigrationAnalyzer {
      */
     public List<Finding> analyze(Path sourceDir) throws IOException {
         List<Finding> findings = new ArrayList<>();
+        // 读不了的文件要留名：原来是裸 `return;` 静默跳过，报告会写成「发现 0 处」，
+        // 让人误以为代码已经迁移干净，实际只是扫不动。这里收集起来，扫描结束后告警。
+        List<String> skipped = new ArrayList<>();
         try (Stream<Path> files = Files.walk(sourceDir)) {
             files.filter(p -> p.toString().endsWith(".java")).forEach(file -> {
                 String content;
                 try {
                     content = Files.readString(file);
                 } catch (IOException e) {
+                    skipped.add(file.toString());
                     return;
                 }
                 for (RewriteRule rule : rules) {
@@ -46,6 +55,10 @@ public class MigrationAnalyzer {
                     }
                 }
             });
+        }
+        if (!skipped.isEmpty()) {
+            log.warn("迁移扫描跳过了 {} 个无法读取的文件（报告中的数量不包含这些文件）：{}",
+                    skipped.size(), skipped.size() > 10 ? skipped.subList(0, 10) : skipped);
         }
         return findings;
     }

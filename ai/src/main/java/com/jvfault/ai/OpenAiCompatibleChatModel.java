@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -23,6 +25,8 @@ import java.util.List;
  * @author jvfault team
  */
 public class OpenAiCompatibleChatModel implements ChatModel {
+
+    private static final Logger log = LoggerFactory.getLogger(OpenAiCompatibleChatModel.class);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -94,7 +98,13 @@ public class OpenAiCompatibleChatModel implements ChatModel {
                         if (text != null && !text.isEmpty()) {
                             chunkConsumer.accept(text);
                         }
-                    } catch (Exception ignored) {
+                    } catch (Exception e) {
+                        // 原来是完全空的 catch：SSE 流里任何一块解析失败都会被静默丢弃，
+                        // 调用方只会看到「响应提前结束」，无法区分是模型侧结束还是解析出错。
+                        // 这里保留「跳过坏块继续流」的行为（流不能因为一块坏数据就中断），
+                        // 但必须留下可观测痕迹。
+                        log.warn("SSE 数据块解析失败，已跳过该块: {}",
+                                e.toString());
                     }
                 }
             });

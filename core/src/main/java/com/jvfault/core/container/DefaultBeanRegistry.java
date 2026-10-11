@@ -628,6 +628,9 @@ public class DefaultBeanRegistry implements BeanRegistry {
                 method.setAccessible(true);
                 method.invoke(instance);
             } catch (NoSuchMethodException ignored) {
+                // initMethod 是声明式配置，方法不存在即视为「未配置初始化回调」，跳过。
+                // 真正的执行失败由下面的 catch(Exception) 负责抛 IllegalStateException，
+                // 两者不能混淆：缺方法不是错误，执行炸了才是。
             } catch (Exception e) {
                 throw new IllegalStateException("Failed to invoke initMethod '" + initMethod
                         + "' on " + def.getName(), e);

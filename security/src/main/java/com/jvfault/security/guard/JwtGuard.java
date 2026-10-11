@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jvfault.security.jwt.JwtService;
 import com.jvfault.web.http.HttpContext;
 import com.jvfault.web.pipeline.Guard;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,6 +20,8 @@ import java.util.Map;
 public class JwtGuard implements Guard {
 
     public static final String CLAIMS_ATTRIBUTE = "jvfault.auth.claims";
+
+    private static final Logger log = LoggerFactory.getLogger(JwtGuard.class);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -50,6 +54,10 @@ public class JwtGuard implements Guard {
             context.getRequest().getPathParams().put(CLAIMS_ATTRIBUTE, MAPPER.writeValueAsString(claims));
             return true;
         } catch (Exception e) {
+            // 失败仍返回 false（fail-closed，鉴权语义不变），但原来这里完全静默：
+            // 「用户没带 token」「token 过期」和「服务端 claims 序列化炸了」在调用方
+            // 看来是同一个 false，线上根本没法区分配置错误和正常拒绝。补一条 warn。
+            log.warn("claims 写入请求属性失败，本次请求按未鉴权处理", e);
             return false;
         }
     }

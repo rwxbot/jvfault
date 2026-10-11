@@ -1,6 +1,6 @@
 # jvfault TODO — 剩余工作清单
 
-> 最后更新：2026-10-01（对应 **v1.0.15 · 核心作用域与健壮性**）
+> 最后更新：2026-10-13（对应 **v1.0.16 · 全 tag 缺陷体检第二轮（并发 + 可观测性）**）
 > 状态口径：✅ 已完成 / ⏸ 待 Ny 决策或外部凭据 / 🔧 技术债（可自主推进）
 
 ---
@@ -21,6 +21,11 @@
 | 11 | **P2** | Spring bean 名与 jvfault 自有 `@Component` 撞名 → 组件静默消失（I1） | ⏸ | **仍 defer**：需 core 支持「外部预登记 vs 自有」区分（Origin/role），等架构师定 API；v1.0.14 起已识别，本轮未做（避免单方面改 core 公开语义） |
 | 12 | **P3** | `JvfaultApplication.createContainer(cls, null, ...)` 会 NPE（S2） | ✅ | **v1.0.15 已修**：`basePackages` 加 null 守卫（`(basePackages != null && length>0)`），`rootModuleClass` 空校验抛 `IllegalArgumentException` |
 | 13 | **P3** | `DefaultBeanRegistry.registerSingleton` 重复注册静默覆盖（纵深防御） | ✅ | **v1.0.15 已修**：同名且<b>不同</b>实例重复注册抛 `IllegalStateException`；同名<b>同</b>实例幂等放行 |
+| 14 | **P1** | `RabbitMQTransportClient` 把锁加在非 final 可变字段 `publishChannel` 上（阿里评审；**v1.0.2 起潜伏 12 个 tag**） | ✅ | **v1.0.16 已修**：改用专用 `private final Object publishLock`。原写法在 `connect()` 重连换 Channel 后两个线程会锁在不同对象上，互斥彻底失效，而 RabbitMQ `Channel` 本身非线程安全 |
+| 15 | **P1** | `RabbitMQTransportClient.ensureConnected()` 的 check-then-act 竞态（并发首调用会各建一次连接，产生两套 reply 队列，响应永远等不到 → 表现为请求超时） | ✅ | **v1.0.16 已修**：方法改 `synchronized`，与 `connect()` / `close()` 的锁域闭合 |
+| 16 | **P1** | 三处<b>完全静默</b>的异常吞掉：ai SSE 坏块、`JwtGuard` claims 写入失败、redis 回包解析失败——均无注释、无日志 | ✅ | **v1.0.16 已修**：保留「跳过坏包继续」/ fail-closed 语义不变，补 `log.warn` 留可观测痕迹 |
+| 17 | **P2** | `MigrationAnalyzer` 读不到文件时裸 `return;` 静默跳过，报告会写成「发现 0 处」，让人误以为已迁移干净 | ✅ | **v1.0.16 已修**：收集跳过清单，扫描结束后 `log.warn` 汇总（跳过行为本身保留——单文件读不了不该中断整轮扫描） |
+| 18 | **P3** | `transport-tcp` 的 `TcpMessageFraming.tryUnframe()` **只被测试用到**（生产走 `TcpTransportServer` 自己的 `readInt()`+`readFully()`，只共用 `MAX_FRAME`），却住在 main 源集 | ⏸ | 移到 test 源集会动到测试基线，等 Ny 拍板；已在评审报告记录 |
 
 ---
 
@@ -177,3 +182,5 @@ Spring Boot 的自动配置并非 JPMS 友好；本模块按 classpath 适配器
 | 聚合 Javadoc 站点任务 + GitHub Pages 自动部署（pages.yml） | v1.0.13+（commit c1337ff） |
 | spring-boot-starter 双向桥接 + 可运行示例（反向注入 + 示例工程） | v1.0.14（`6a81f9b`/`5e9eefa`） |
 | 核心 REQUEST 作用域真正按请求隔离 + `createContainer` NPE 守卫 + `registerSingleton` 碰撞防护 | v1.0.15 |
+| 单例创建「检查→创建→缓存」加原子锁（修复 check-then-act 竞态）+ 纠正 Javadoc 三级缓存错误描述 | v1.0.15+（阿里评审 P1） |
+| 全 28 tag 确定性缺陷体检 + RMQ 非 final 锁 / ensureConnected 竞态 / 三处静默吞异常 / MigrationAnalyzer 静默跳过 修复 | v1.0.16 |

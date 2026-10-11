@@ -82,6 +82,8 @@ public class TcpTransportClient implements TransportClient {
                 socket.close();
             }
         } catch (IOException ignored) {
+            // close() 语义是「尽力释放」：socket 已断开时 close 会抛 IOException，
+            // 此时没有可恢复动作，也不该让调用方的资源清理链路中断。
         }
     }
 }

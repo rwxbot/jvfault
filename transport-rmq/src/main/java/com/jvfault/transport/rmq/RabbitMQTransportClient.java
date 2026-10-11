@@ -47,6 +47,18 @@ public class RabbitMQTransportClient implements TransportClient {
     private String replyQueue;
     private final ConcurrentHashMap<String, BlockingQueue<Message>> pending = new ConcurrentHashMap<>();
 
+    /**
+     * 发布专用锁对象（阿里评审 P2：synchronized 不能锁在非 final 的可变字段上）。
+     *
+     * <p>原实现是 {@code synchronized (publishChannel)}：{@code publishChannel} 是
+     * 非 final 字段，{@link #connect()} 重连时会把它换成新 Channel。一旦发生替换，
+     * 两个线程就会锁在<b>不同对象</b>上，互斥彻底失效；而 RabbitMQ Channel 本身
+     * 又不是线程安全的，并发 basicPublish 会直接抛
+     * {@code IllegalStateException} 或损坏帧。改用专用 final 锁对象后，
+     * 锁身份恒定，与 Channel 是否重建无关。
+     */
+    private final Object publishLock = new Object();
+
     public RabbitMQTransportClient(ConnectionConfig config) {
         this.config = config;
     }
@@ -96,7 +108,14 @@ public class RabbitMQTransportClient implements TransportClient {
         }
     }
 
-    private void ensureConnected() {
+    /**
+     * 惰性建连。必须同步：原来的 {@code if (!connected) connect();} 是典型的
+     * check-then-act 竞态 —— 两个线程同时看到 connected=false 就会各建一次连接，
+     * 产生两套 reply 队列与消费者，后建的会把先建的 pending 映射彻底架空（响应
+     * 永远等不到，最终表现为请求超时）。{@link #connect()} 本身已是
+     * {@code synchronized}（可重入），这里加锁只补上「判断」这一步。
+     */
+    private synchronized void ensureConnected() {
         if (!connected) {
             connect();
         }
@@ -113,7 +132,7 @@ public class RabbitMQTransportClient implements TransportClient {
             AMQP.BasicProperties props = new AMQP.BasicProperties.Builder()
                     .correlationId(correlationId).replyTo(replyQueue).build();
             try {
-                synchronized (publishChannel) {
+                synchronized (publishLock) {
                     publishChannel.basicPublish(EXCHANGE, pattern, props,
                             codec.encode(RabbitMQWire.from(request)));
                 }
@@ -141,7 +160,7 @@ public class RabbitMQTransportClient implements TransportClient {
         ensureConnected();
         Message message = new Message(pattern, codec.encode(payload));
         try {
-            synchronized (publishChannel) {
+            synchronized (publishLock) {
                 publishChannel.basicPublish(EXCHANGE, pattern, null,
                         codec.encode(RabbitMQWire.from(message)));
             }

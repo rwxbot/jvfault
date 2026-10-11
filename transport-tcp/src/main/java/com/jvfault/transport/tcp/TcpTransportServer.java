@@ -123,6 +123,8 @@ public class TcpTransportServer extends AbstractTransport {
                 serverSocket.close();
             }
         } catch (Exception ignored) {
+            // 关闭期 best-effort：监听 socket 可能已被 OS 回收或从未 bind 成功，
+            // 这里的失败不能影响后续 acceptPool.shutdownNow() 的执行。
         }
         acceptPool.shutdownNow();
     }
