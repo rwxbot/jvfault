@@ -20,10 +20,14 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>特性：
  * <ul>
- *   <li>三级缓存解决字段/Setter 注入的循环依赖 (singletonFactories -> earlySingletonObjects -> singletonObjects)</li>
+ *   <li>两级缓存 + 「正在创建」集合解决字段/Setter 注入的循环依赖
+ *       ({@code earlySingletonObjects} 暴露早期引用 → {@code singletonObjects} 存成品；
+ *       {@code creatingBeans} 负责环检测) ——
+ *       注意：这里<b>没有</b> Spring 那套 {@code singletonFactories} 三级缓存，不要照搬旧描述</li>
  *   <li>支持构造器/字段/Setter 注入</li>
  *   <li>作用域管理: Singleton/Prototype/Request</li>
- *   <li>线程安全</li>
+ *   <li>线程安全：读路径无锁（并发容器），单例创建的「检查→创建→缓存」由
+ *       {@code singletonCreationLock} 保证原子（见 {@link #getSingleton}）</li>
  * </ul>
  *
  * @since v0.1.0 (2015)
@@ -61,6 +65,12 @@ public class DefaultBeanRegistry implements BeanRegistry {
 
     /** 已就绪的 Bean 后处理器 (初始化序列回调) */
     private volatile List<BeanPostProcessor> beanPostProcessors = Collections.emptyList();
+
+    /**
+     * 单例创建锁：保证 {@link #getSingleton} 里「检查 → 创建 → 缓存」的原子性。
+     * 单一全局可重入锁（而不是按 bean 名加锁），避免跨线程循环依赖形成死锁环路。
+     */
+    private final Object singletonCreationLock = new Object();
 
     /**
      * 请求作用域栈：每个线程一条 Deque，栈顶为「当前请求」的实例缓存（name -> instance）。
@@ -478,7 +488,7 @@ public class DefaultBeanRegistry implements BeanRegistry {
      * 获取单例 Bean（含循环依赖处理）
      */
     private Object getSingleton(String name, BeanDefinition def) {
-        // 1. 成品缓存
+        // 1. 成品缓存（无锁快路径）
         Object singleton = singletonObjects.get(name);
         if (singleton != null) {
             return singleton;
@@ -490,23 +500,43 @@ public class DefaultBeanRegistry implements BeanRegistry {
             return singleton;
         }
 
-        // 3. 防御性检测（理论上不会到达）
-        if (creatingBeans.contains(name)) {
-            throw new IllegalStateException("Circular dependency detected: " + name);
-        }
+        // 3. 「检查 → 创建 → 缓存」必须**原子**。
+        //    旧实现是无锁的 check-then-act：两个线程都读到 null 就会各自 createBean，
+        //    于是单例被构造两次（@PostConstruct 跑两遍），且不同调用方拿到**不同实例** ——
+        //    与类 Javadoc 宣称的「线程安全」不符。
+        //    这里用**单一全局可重入锁**而不是「按 bean 名加锁」：
+        //      - 同一线程递归创建依赖时可重入，不会自锁；
+        //      - 只存在一把锁，跨线程循环依赖（A→B、B→A）也不会形成死锁环路。
+        //    代价是并发创建被串行化，而创建主要发生在启动期，可接受。
+        synchronized (singletonCreationLock) {
+            // 双检：拿到锁后必须重读缓存，前一个线程可能已经创建完
+            singleton = singletonObjects.get(name);
+            if (singleton != null) {
+                return singleton;
+            }
+            singleton = earlySingletonObjects.get(name);
+            if (singleton != null) {
+                return singleton;
+            }
 
-        // 4. 创建
-        creatingBeans.add(name);
-        try {
-            singleton = createBean(name, def);
-            singletonObjects.put(name, singleton);
-            return singleton;
-        } catch (Exception e) {
-            throw (e instanceof RuntimeException) ? (RuntimeException) e
-                    : new IllegalStateException("Failed to create bean: " + name, e);
-        } finally {
-            creatingBeans.remove(name);
-            earlySingletonObjects.remove(name);
+            // 4. 防御性检测（理论上不会到达）
+            if (creatingBeans.contains(name)) {
+                throw new IllegalStateException("Circular dependency detected: " + name);
+            }
+
+            // 5. 创建
+            creatingBeans.add(name);
+            try {
+                singleton = createBean(name, def);
+                singletonObjects.put(name, singleton);
+                return singleton;
+            } catch (Exception e) {
+                throw (e instanceof RuntimeException) ? (RuntimeException) e
+                        : new IllegalStateException("Failed to create bean: " + name, e);
+            } finally {
+                creatingBeans.remove(name);
+                earlySingletonObjects.remove(name);
+            }
         }
     }
 

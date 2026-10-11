@@ -60,7 +60,7 @@ class ReadmeFactsConsistencyTest {
      * <b>新增/删除任何测试后必须</b>：跑全量 {@code ./gradlew test}，核对真实总数，再更新本常量与 README。
      * （v1.0.9 曾漏掉这步 —— 加了 7 个测试却仍写 274，导致 README 静默漂移；v1.0.10 修正为 281。）
      */
-    private static final int EXPECTED_TEST_COUNT = 308;
+    private static final int EXPECTED_TEST_COUNT = 309;
 
     private static final Pattern RELEASE_DECL =
             Pattern.compile("options\\.release\\s*=\\s*(\\d+)");
