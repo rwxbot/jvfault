@@ -60,7 +60,16 @@ public final class StructuredParallel {
         }
     }
 
-    /** 双分支便捷重载 */
+    /**
+     * 双分支便捷重载
+     *
+     * <p>这里的 {@code (A) results.get(0)} 是<b>无法避免</b>的 unchecked 转换：
+     * 内部统一走 {@code List<Object>} 收集结果，取回时只能靠泛型参数还原类型。
+     * 安全性由构造保证 —— 列表第 i 位装的正是第 i 个 Callable 的返回值，
+     * 而 A/B 就是这两个 Callable 的声明返回类型。集中在这里压制一次，
+     * 好过让告警散落在每个调用点。
+     */
+    @SuppressWarnings("unchecked")
     public static <A, B> java.util.Map.Entry<A, B> invokeAll(Callable<A> first, Callable<B> second) {
         List<Object> results = invokeAll(java.util.List.of(
                 (Callable<Object>) first, (Callable<Object>) second));

@@ -71,7 +71,10 @@ public class JwtGuard implements Guard {
             return new LinkedHashMap<>();
         }
         try {
-            return MAPPER.readValue(raw, Map.class);
+            // 原来写 readValue(raw, Map.class) 是裸类型 → 编译期 [unchecked]。
+            // 用 TypeReference 把泛型带上，既消警告也让返回值的实际类型与签名一致。
+            return MAPPER.readValue(raw, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+            });
         } catch (Exception e) {
             return new LinkedHashMap<>();
         }

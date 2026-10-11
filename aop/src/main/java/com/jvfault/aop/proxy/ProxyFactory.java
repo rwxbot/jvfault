@@ -54,7 +54,7 @@ public class ProxyFactory {
                 && targetClass != Object.class;
         if (concrete) {
             try {
-                return (T) ByteBuddyClassProxy.create(target,
+                return ByteBuddyClassProxy.create(target,
                         (method, args) -> execute(target, method, args));
             } catch (IllegalStateException e) {
                 // 类代理失败（如缺构造器）时回退 JDK 接口代理

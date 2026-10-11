@@ -15,12 +15,19 @@ import java.util.concurrent.TimeUnit;
 public class InMemoryTransport extends AbstractTransport {
 
     private final BlockingQueue<Message> eventQueue = new LinkedBlockingQueue<>();
-    private final Thread dispatcher;
+    private Thread dispatcher;
     private volatile boolean closed;
 
+    /**
+     * 刻意不在构造器里创建线程。
+     *
+     * <p>原来写的是 {@code new Thread(this::drainEvents, ...)} —— 方法引用会捕获
+     * {@code this}，等于把<b>尚未构造完成</b>的对象交给另一个对象（JDK 21 的
+     * {@code [this-escape]} 正是查这个）。一旦子类或 AOP 代理覆写了
+     * {@code dispatch(...)}，那条线程就可能在半成品对象上调到覆写方法。
+     * 线程改到 {@link #bind()} 里创建，那时对象已完全初始化。
+     */
     public InMemoryTransport() {
-        this.dispatcher = new Thread(this::drainEvents, "jvfault-inmemory-transport");
-        this.dispatcher.setDaemon(true);
     }
 
     /** 事件分发循环 */
@@ -41,7 +48,13 @@ public class InMemoryTransport extends AbstractTransport {
     @Override
     public void bind() {
         super.bind();
-        dispatcher.start();
+        // 幂等：原实现重复 bind() 会对同一个 Thread 二次 start()，
+        // 直接抛 IllegalThreadStateException。
+        if (dispatcher == null) {
+            dispatcher = new Thread(this::drainEvents, "jvfault-inmemory-transport");
+            dispatcher.setDaemon(true);
+            dispatcher.start();
+        }
     }
 
     @Override
@@ -71,7 +84,10 @@ public class InMemoryTransport extends AbstractTransport {
     public void close() {
         closed = true;
         running = false;
-        dispatcher.interrupt();
+        // 从未 bind() 过就 close() 时 dispatcher 还是 null（线程已改到 bind() 创建）
+        if (dispatcher != null) {
+            dispatcher.interrupt();
+        }
     }
 
     /**

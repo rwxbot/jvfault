@@ -82,8 +82,9 @@ public class KafkaTransportClient implements TransportClient {
 
         long deadline = System.nanoTime() + timeoutMillis * 1_000_000L;
         while (System.nanoTime() < deadline) {
-            ConsumerRecords<String, String> records = replyConsumer.poll(
-                    Math.max(50L, Math.min(500L, (deadline - System.nanoTime()) / 1_000_000)));
+            // poll(long) 自 Kafka 2.0 起标记废弃（4.0 计划移除），改用 Duration 重载。
+            ConsumerRecords<String, String> records = replyConsumer.poll(java.time.Duration.ofMillis(
+                    Math.max(50L, Math.min(500L, (deadline - System.nanoTime()) / 1_000_000))));
             for (ConsumerRecord<String, String> record : records) {
                 if (!correlationId.equals(record.key())) {
                     continue;

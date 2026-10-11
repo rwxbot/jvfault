@@ -178,13 +178,13 @@ public class DefaultBeanRegistry implements BeanRegistry {
             for (String name : names) {
                 BeanDefinition def = beanDefinitions.get(name);
                 if (def != null && def.isPrimary()) {
-                    return (T) getBean(name, requiredType);
+                    return getBean(name, requiredType);
                 }
             }
             throw new NoUniqueBeanDefinitionException("Multiple beans found for type: " + requiredType.getName()
                     + ", candidates: " + Arrays.toString(names));
         }
-        return (T) getBean(names[0], requiredType);
+        return getBean(names[0], requiredType);
     }
 
     @Override

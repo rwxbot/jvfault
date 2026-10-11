@@ -22,7 +22,11 @@ public class JsonPropertySource extends PropertySource {
         super(name);
         Map<String, Object> root;
         try {
-            root = MAPPER.readValue(in, Map.class);
+            // readValue(in, Map.class) 是裸类型 → 编译期 [unchecked]。
+            // 用 TypeReference 带上泛型，与字段声明 Map<String,Object> 对齐。
+            root = MAPPER.readValue(in,
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                    });
         } catch (Exception e) {
             throw new ConfigException("JSON 配置解析失败: " + name, null, e);
         }

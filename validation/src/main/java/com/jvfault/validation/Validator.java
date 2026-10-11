@@ -41,7 +41,7 @@ public final class Validator {
     public static <T> void validateOrThrow(T object) {
         Set<ConstraintViolation<T>> violations = engine.validate(object);
         if (!violations.isEmpty()) {
-            throw new ValidationException((Set<ConstraintViolation<?>>) (Set<?>) violations);
+            throw new ValidationException(violations);
         }
     }
 }

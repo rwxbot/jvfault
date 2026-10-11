@@ -26,6 +26,9 @@
 | 16 | **P1** | 三处<b>完全静默</b>的异常吞掉：ai SSE 坏块、`JwtGuard` claims 写入失败、redis 回包解析失败——均无注释、无日志 | ✅ | **v1.0.16 已修**：保留「跳过坏包继续」/ fail-closed 语义不变，补 `log.warn` 留可观测痕迹 |
 | 17 | **P2** | `MigrationAnalyzer` 读不到文件时裸 `return;` 静默跳过，报告会写成「发现 0 处」，让人误以为已迁移干净 | ✅ | **v1.0.16 已修**：收集跳过清单，扫描结束后 `log.warn` 汇总（跳过行为本身保留——单文件读不了不该中断整轮扫描） |
 | 18 | **P3** | `transport-tcp` 的 `TcpMessageFraming.tryUnframe()` **只被测试用到**（生产走 `TcpTransportServer` 自己的 `readInt()`+`readFully()`，只共用 `MAX_FRAME`），却住在 main 源集 | ⏸ | 移到 test 源集会动到测试基线，等 Ny 拍板；已在评审报告记录 |
+| 19 | **P1** | `DefaultConfigEnvironment` 构造器调用可覆写方法（JDK 21 `[this-escape]`）：AOP 用 ByteBuddy 生成子类代理，代理字段在父类构造器跑完前未初始化，此时触发拦截器会看到半成品对象 | ✅ | **v1.0.16 已修**：装配动作挪到静态辅助方法、在另一个 `ConfigurableEnvironment` 实例上完成，结果经新增的 `protected ConfigurableEnvironment(sources, profiles)` 构造器（构造器不可覆写）交给父类 |
+| 20 | **P1** | `InMemoryTransport` 构造器里 `new Thread(this::drainEvents)` 让 `this` 在构造完成前逃逸 | ✅ | **v1.0.16 已修**：线程改到 `bind()` 创建并做幂等（顺带修掉重复 `bind()` 会二次 `start()` 抛 `IllegalThreadStateException`）；`close()` 加 null 守卫 |
+| 21 | **P3** | 编译期 `-Xlint:all` 告警 24 条 | ✅ 部分 | **v1.0.16**：`[this-escape]`×2、`[cast]`×3、`poll(long)` 废弃、`[unchecked]`×2 已清零 → 剩 10 条，全部是**上游库废弃 API**（Jackson `asText(String)`×7、Lettuce `setDefaultTimeout(Duration)`×2、GraphQL `Builder.context(Object)`×1），需按上游替代方案决策，不盲改 |
 
 ---
 
@@ -184,3 +187,4 @@ Spring Boot 的自动配置并非 JPMS 友好；本模块按 classpath 适配器
 | 核心 REQUEST 作用域真正按请求隔离 + `createContainer` NPE 守卫 + `registerSingleton` 碰撞防护 | v1.0.15 |
 | 单例创建「检查→创建→缓存」加原子锁（修复 check-then-act 竞态）+ 纠正 Javadoc 三级缓存错误描述 | v1.0.15+（阿里评审 P1） |
 | 全 28 tag 确定性缺陷体检 + RMQ 非 final 锁 / ensureConnected 竞态 / 三处静默吞异常 / MigrationAnalyzer 静默跳过 修复 | v1.0.16 |
+| 编译期 `-Xlint:all` 台账化并修复两处 `[this-escape]`（构造期 this 逃逸）+ 冗余强转 + unchecked 泛型 | v1.0.16 |

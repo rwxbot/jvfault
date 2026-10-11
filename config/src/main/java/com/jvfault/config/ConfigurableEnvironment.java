@@ -17,6 +17,32 @@ public class ConfigurableEnvironment {
     private final List<PropertySource> propertySources = new ArrayList<>();
     private final List<String> activeProfiles = new ArrayList<>();
 
+    /**
+     * 用初始属性源 + profile 直接装配（供子类构造器 {@code super(...)} 使用）。
+     *
+     * <p>存在理由：子类若在构造器里调用 {@link #addPropertySource} /
+     * {@link #setActiveProfiles} 这类<b>可覆写</b>方法，就会在子类（或它的 AOP
+     * 代理子类）构造完成之前把 {@code this} 交给可能被覆写的方法 —— 正是 JDK 21
+     * 的 {@code [this-escape]} 警告要抓的东西。jvfault 的 AOP 用 ByteBuddy
+     * 生成子类代理，代理字段在父类构造器跑完前还没初始化，此时触发拦截器会看到
+     * 半成品对象。构造器不可覆写，走这条路就没有逃逸问题。
+     */
+    /**
+     * 空环境（属性源与 profile 后续再添加）。
+     * 显式保留：一旦写了带参构造器，编译器就不再自动生成无参构造器。
+     */
+    public ConfigurableEnvironment() {
+    }
+
+    protected ConfigurableEnvironment(List<PropertySource> sources, String[] profiles) {
+        if (sources != null) {
+            propertySources.addAll(sources);
+        }
+        if (profiles != null) {
+            activeProfiles.addAll(Arrays.asList(profiles));
+        }
+    }
+
     // ============ 属性解析 ============
 
     public String getProperty(String key) {
