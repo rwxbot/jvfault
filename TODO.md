@@ -30,6 +30,9 @@
 | 20 | **P1** | `InMemoryTransport` 构造器里 `new Thread(this::drainEvents)` 让 `this` 在构造完成前逃逸 | ✅ | **v1.0.16 已修**：线程改到 `bind()` 创建并做幂等（顺带修掉重复 `bind()` 会二次 `start()` 抛 `IllegalThreadStateException`）；`close()` 加 null 守卫 |
 | 21 | **P3** | 编译期 `-Xlint:all` 告警 24 条 | ✅ 部分 | **v1.0.16**：`[this-escape]`×2、`[cast]`×3、`poll(long)` 废弃、`[unchecked]`×2 已清零 → 剩 10 条，全部是**上游库废弃 API**（Jackson `asText(String)`×7、Lettuce `setDefaultTimeout(Duration)`×2、GraphQL `Builder.context(Object)`×1），需按上游替代方案决策，不盲改 |
 
+| 22 | **P2** | 平台默认 Locale：`OpenApiGenerator` 的 `getHttpMethod().toLowerCase()`、`BeanDefinition` 的 `scope.toUpperCase()` 未指定 Locale，土耳其语下大写 I → 无点 ı（`OPTIONS`→`optıons`、`singleton`→`SİNGLETON`） | ✅ | **v1.0.16 已修**：两处都改 `Locale.ROOT`。`OPTIONS` 那条是<b>真可达</b>（生成的 OpenAPI 键不合规）；`SINGLETON` 那条目前被「解析失败退回 SINGLETON」掩盖、暂不可观测，属隐患提前排除。已加**非空洞**回归测试（前置断言校验 tr_TR 生效，且撤掉修复实测会红） |
+| 23 | — | `JsonWriter` / `TraceContext` 的 `String.format("%x")` 是否受 Locale 影响 | ✅ 无需改 | **实测证伪**：JDK 21 下 tr_TR / hi-IN-u-nu-deva / ar-SA-u-nu-arab 三种 Locale 的 `%04x` 都输出 ASCII 十六进制，不受影响。不为此加无依据的 `Locale.ROOT` |
+
 ---
 
 ## 二、明细
@@ -188,3 +191,4 @@ Spring Boot 的自动配置并非 JPMS 友好；本模块按 classpath 适配器
 | 单例创建「检查→创建→缓存」加原子锁（修复 check-then-act 竞态）+ 纠正 Javadoc 三级缓存错误描述 | v1.0.15+（阿里评审 P1） |
 | 全 28 tag 确定性缺陷体检 + RMQ 非 final 锁 / ensureConnected 竞态 / 三处静默吞异常 / MigrationAnalyzer 静默跳过 修复 | v1.0.16 |
 | 编译期 `-Xlint:all` 台账化并修复两处 `[this-escape]`（构造期 this 逃逸）+ 冗余强转 + unchecked 泛型 | v1.0.16 |
+| 平台默认 Locale 修复（HTTP 方法键 / 作用域解析）+ 非空洞回归测试 + `String.format("%x")` 实测证伪 | v1.0.16 |
