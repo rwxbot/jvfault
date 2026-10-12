@@ -10,7 +10,7 @@ publishing {
             pom {
                 name.set("jvfault-${project.name}")
                 description.set("jvfault Framework BOM: align versions of all published modules")
-                url.set("https://github.com/jvfault/jvfault")
+                url.set("https://github.com/rwxbot/jvfault")
                 licenses {
                     license {
                         name.set("Apache License 2.0")
