@@ -56,10 +56,6 @@ final class JsonWriter {
                 case '\f': sb.append("\\f");  break;
                 default:
                     if (c < 0x20) {
-                        // 注：实测 %04x 不受 Locale 影响（JDK 21 下 tr_TR / hi-IN-u-nu-deva /
-                        // ar-SA-u-nu-arab 都输出 ASCII 十六进制），所以这里不写 Locale.ROOT
-                        // 也不会出错。保持原样是为了不让 diff 带上无依据的改动 ——
-                        // 只有换成 %d / %f 这类会本地化的转换符时才需要 Locale.ROOT。
                         sb.append(String.format("\\u%04x", (int) c));
                     } else {
                         sb.append(c);

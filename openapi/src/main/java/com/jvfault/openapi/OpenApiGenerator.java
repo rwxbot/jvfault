@@ -63,9 +63,7 @@ public class OpenApiGenerator {
             operation.put("summary", route.getHandler().getDeclaringClass().getSimpleName()
                     + "." + route.getHandler().getName());
             operation.put("responses", defaultResponses());
-            // OpenAPI 的 paths 键必须是规范小写（get/post/...），所以固定用 Locale.ROOT：
-            // 默认 Locale（如土耳其语）会把大写 I 映射成无点 ı，"OPTIONS" 会写成
-            // "optıons"，生成的文档不符合规范，下游工具会认不出这个 method。
+            // Locale.ROOT 固定大小写映射，防止土耳其语等 Locale 破坏 paths 键
             pathItem.put(route.getHttpMethod().toLowerCase(java.util.Locale.ROOT), operation);
         }
         doc.put("paths", paths);

@@ -109,12 +109,8 @@ public class BeanDefinition {
     private static Component.Scope parseScope(String scope) {
         if (scope == null || scope.isEmpty()) return Component.Scope.SINGLETON;
         try {
-            // 显式 Locale.ROOT：默认 Locale 下 toUpperCase() 做语言相关映射，
-            // 土耳其语把 i → İ（U+0130），实测 "singleton".toUpperCase(tr_TR)
-            // = "SİNGLETON"（已用 JDK 21 验证）。
-            // 现状说明：目前三个作用域里只有 SINGLETON 含 i，而解析失败恰好也退回
-            // SINGLETON，所以**暂时观察不到**错误行为。但这是个陷阱 —— 一旦将来
-            // 新增含 i 且回退值不同的作用域，土耳其语环境下就会静默降级。
+            // 默认 Locale 下 toUpperCase() 做语言相关映射：土耳其语 i → İ，
+            // "singleton" 会变成 "SİNGLETON" 而匹配不到枚举（实测 tr_TR）。
             return Component.Scope.valueOf(scope.toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return Component.Scope.SINGLETON;

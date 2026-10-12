@@ -18,15 +18,7 @@ public class InMemoryTransport extends AbstractTransport {
     private Thread dispatcher;
     private volatile boolean closed;
 
-    /**
-     * 刻意不在构造器里创建线程。
-     *
-     * <p>原来写的是 {@code new Thread(this::drainEvents, ...)} —— 方法引用会捕获
-     * {@code this}，等于把<b>尚未构造完成</b>的对象交给另一个对象（JDK 21 的
-     * {@code [this-escape]} 正是查这个）。一旦子类或 AOP 代理覆写了
-     * {@code dispatch(...)}，那条线程就可能在半成品对象上调到覆写方法。
-     * 线程改到 {@link #bind()} 里创建，那时对象已完全初始化。
-     */
+    /** 线程改到 bind() 创建：构造期方法引用捕获 this 会触发 [this-escape] */
     public InMemoryTransport() {
     }
 

@@ -20,11 +20,7 @@ public class DefaultConfigEnvironment extends ConfigurableEnvironment {
 
     @Inject
     public DefaultConfigEnvironment() {
-        // 装配动作全部挪到静态辅助方法里，在**另一个** ConfigurableEnvironment
-        // 实例上完成，最后只把结果通过 super(...) 交给父类构造器。
-        // 原来是在构造器里直接调 setActiveProfiles/addAll —— 那些方法可被覆写，
-        // 在 AOP 生成代理子类的场景下会把未初始化完成的 this 交出去
-        // （JDK 21 [this-escape]，见 ConfigurableEnvironment 的带参构造器注释）。
+        // 装配在另一个实例上完成后经 super(...) 传入，避免构造期 this 逃逸
         this(loadInitial());
     }
 
