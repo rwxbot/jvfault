@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * TCP 传输服务端（BIO 线程池模型，帧协议见 TcpMessageFraming）。
+ * TCP 传输服务端（BIO 线程池模型：4 字节大端长度 + JSON 载荷）。
  *
  * <p>消息 wire 格式：JSON 对象 {"pattern":..., "data":base64, "correlationId":..., "id":...}。
  *
@@ -82,7 +82,7 @@ public class TcpTransportServer extends AbstractTransport {
                 } catch (EOFException eof) {
                     return; // 客户端正常断开
                 }
-                if (len > TcpMessageFraming.MAX_FRAME) {
+                if (len > TcpWireMessage.MAX_FRAME) {
                     throw new TransportException("帧超限: " + len);
                 }
                 byte[] payload = new byte[len];

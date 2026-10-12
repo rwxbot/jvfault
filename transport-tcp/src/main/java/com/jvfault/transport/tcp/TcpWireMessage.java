@@ -13,6 +13,9 @@ import java.util.Map;
  */
 public class TcpWireMessage {
 
+    /** 最大帧 8MB，防恶意长度 */
+    public static final int MAX_FRAME = 8 * 1024 * 1024;
+
     private String id;
     private String pattern;
     private String dataBase64;
