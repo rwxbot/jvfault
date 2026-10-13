@@ -38,7 +38,6 @@ dependencies {
         api(project(":apt"))
         api(project(":microservices"))
         api(project(":test"))
-        api(project(":tests"))
         api(project(":web"))
         api(project(":platform-servlet"))
         api(project(":platform-reactive"))
