@@ -64,9 +64,9 @@ public class OpenAiCompatibleChatModel implements ChatModel {
                         + ": " + response.body());
             }
             JsonNode root = MAPPER.readTree(response.body());
-            String content = root.path("choices").path(0).path("message").path("content").asText("");
+            String content = root.path("choices").path(0).path("message").path("content").textValue();
             JsonNode usage = root.path("usage");
-            return new ChatResponse(content, root.path("model").asText(model),
+            return new ChatResponse(content, root.path("model").textValue(),
                     new ChatResponse.Usage(
                             usage.path("prompt_tokens").asLong(),
                             usage.path("completion_tokens").asLong(),
@@ -94,7 +94,7 @@ public class OpenAiCompatibleChatModel implements ChatModel {
                     try {
                         JsonNode delta = MAPPER.readTree(line.substring(6))
                                 .path("choices").path(0).path("delta");
-                        String text = delta.path("content").asText(null);
+                        String text = delta.path("content").textValue();
                         if (text != null && !text.isEmpty()) {
                             chunkConsumer.accept(text);
                         }

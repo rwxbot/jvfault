@@ -53,8 +53,9 @@ public class RedisTransportClient implements TransportClient {
             return;
         }
         config.validate();
-        client = RedisClient.create(RedisURI.create(config.getBootstrap()));
-        client.setDefaultTimeout(Duration.ofSeconds(10));
+        RedisURI uri = RedisURI.create(config.getBootstrap());
+        uri.setTimeout(Duration.ofSeconds(10));
+        client = RedisClient.create(uri);
         pubSub = client.connectPubSub();
         replyChannel = "jvfault.reply." + UUID.randomUUID();
         pubSub.addListener(new RedisPubSubAdapter<String, String>() {

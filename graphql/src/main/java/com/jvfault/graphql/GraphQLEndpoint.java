@@ -41,7 +41,7 @@ public class GraphQLEndpoint {
         ExecutionInput input = ExecutionInput.newExecutionInput()
                 .query(query)
                 .variables(variables != null ? variables : new LinkedHashMap<String, Object>())
-                .context(context)
+                .graphQLContext(toContextMap(context))
                 .build();
         graphql.ExecutionResult result = graphql.execute(input);
         Map<String, Object> response = new LinkedHashMap<>();
@@ -61,5 +61,17 @@ public class GraphQLEndpoint {
      */
     public CompletableFuture<Map<String, Object>> executeAsync(String query, Map<String, Object> variables) {
         return CompletableFuture.supplyAsync(() -> execute(query, variables, null));
+    }
+
+    /** context 语义保持原样：Map 直接透传，其它对象包成 {"value": ...} */
+    @SuppressWarnings("unchecked")
+    private static Map<?, Object> toContextMap(Object context) {
+        if (context == null) {
+            return new LinkedHashMap<>();
+        }
+        if (context instanceof Map<?, ?> m) {
+            return (Map<?, Object>) m;
+        }
+        return Map.of("value", context);
     }
 }

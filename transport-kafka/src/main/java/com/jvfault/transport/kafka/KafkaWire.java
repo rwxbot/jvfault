@@ -55,10 +55,10 @@ public class KafkaWire {
     public static Message deserialize(String body, com.fasterxml.jackson.databind.ObjectMapper mapper) {
         try {
             JsonNode root = mapper.readTree(body);
-            String pattern = root.path("pattern").asText();
-            String dataB64 = root.path("dataBase64").asText(null);
+            String pattern = root.path("pattern").textValue();
+            String dataB64 = root.path("dataBase64").textValue();
             byte[] data = dataB64 != null ? Base64.getDecoder().decode(dataB64) : new byte[0];
-            String correlationId = root.path("correlationId").asText(null);
+            String correlationId = root.path("correlationId").textValue();
             Map<String, String> headers = new java.util.LinkedHashMap<>();
             JsonNode headersNode = root.path("headers");
             if (headersNode.isObject()) {

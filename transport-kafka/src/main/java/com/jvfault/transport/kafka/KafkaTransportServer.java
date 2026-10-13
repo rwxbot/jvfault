@@ -160,7 +160,7 @@ public class KafkaTransportServer extends AbstractTransport {
 
     private String extractReplyTopic(String body) {
         try {
-            return mapper.readTree(body).path("replyTopic").asText(null);
+            return mapper.readTree(body).path("replyTopic").textValue();
         } catch (Exception e) {
             // replyTopic 是可选字段：报文不是 JSON、或压根没带 replyTopic 都属正常
             // （纯事件消息就没有回复地址），返回 null 表示「无需回复」。

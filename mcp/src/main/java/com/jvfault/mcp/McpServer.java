@@ -85,7 +85,7 @@ public class McpServer {
                 return McpCodec.jsonObject().put("tools", toolsArr.build()).build();
             }
             case "tools/call" -> {
-                String toolName = request.params().path("name").asText();
+                String toolName = request.params().path("name").textValue();
                 ToolHandler handler = tools.get(toolName);
                 if (handler == null) {
                     throw new IllegalArgumentException("未知工具: " + toolName);
@@ -106,7 +106,7 @@ public class McpServer {
                 return McpCodec.jsonObject().put("resources", resourcesArr.build()).build();
             }
             case "resources/read" -> {
-                String uri = request.params().path("uri").asText();
+                String uri = request.params().path("uri").textValue();
                 if (!resources.containsKey(uri)) {
                     throw new IllegalArgumentException("资源不存在: " + uri);
                 }

@@ -29,7 +29,7 @@ final class McpCodec {
             JsonNode root = MAPPER.readTree(json);
             Object id = root.has("id") && !root.get("id").isNull()
                     ? root.get("id").asText() : null;
-            String method = root.path("method").asText(null);
+            String method = root.path("method").textValue();
             return new Request(id, method, root.path("params"));
         } catch (Exception e) {
             throw new IllegalArgumentException("非法 JSON-RPC 消息", e);
