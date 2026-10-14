@@ -10,6 +10,127 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 > 时间跨度覆盖 2025 下半年至 2026 年 3 月，版本标签连续排列（v0.1.0 → v1.0.13）。
 > 这是**回填的提交日期**（`GIT_AUTHOR_DATE` / `GIT_COMMITTER_DATE`），并非真实开发时间；
 > 重建前的原始历史保留在远程备份分支 `backup/pre-rewrite-20260925`。
+>
+> **v1.0.14 起改用真实日期**（不再回填）：v1.0.14 / v1.0.15 = 2026-10-01，v1.0.16 = 2026-10-13。
+> 2026-10-13 已将 main 与全部 29 个 tag 强推到远端（tag 重定向经 TREE-SAME 验证无损）。
+
+---
+
+## [v1.0.16] - 阿里评审第二轮：全 tag 确定性体检 + 并发/可观测/Locale/废弃 API 修复（2026-10-13）
+
+> 本轮由 `scripts/review/java_smell_scan.py`（21 条规则、零 LLM）扫 28 个 tag 建缺陷台账后逐项修复。
+> **编译告警 24 → 0（清零）**，测试 309 → **310**。
+
+### Fixed — 并发正确性
+- **`RabbitMQTransportClient` 锁在非 final 可变字段 `publishChannel` 上**（P1）：
+  改用专用 `private final Object publishLock`。原写法在 `connect()` 重连换 Channel 后
+  两个线程会锁在不同对象上，互斥彻底失效，而 RabbitMQ `Channel` 本身非线程安全。
+  **该缺陷自 v1.0.2 引入、潜伏 12 个 tag** 到 v1.0.15 才被发现。
+- **`RabbitMQTransportClient.ensureConnected()` 的 check-then-act 竞态**（P1）：
+  并发首调用会各建一次连接、产生两套 reply 队列，响应永远等不到（表现为请求超时）。
+  方法改 `synchronized`，与 `connect()` / `close()` 锁域闭合。
+
+### Fixed — 可观测性（消除静默失败）
+- 三处**完全静默**的异常吞掉（无注释、无日志）：`ai` SSE 坏块解析、`JwtGuard` claims
+  写入失败、`transport-redis` 回包解析失败 → 补 `log.warn`。
+  保留原语义不变（跳过坏包继续流 / fail-closed / 跳过坏包继续监听），只加可观测痕迹。
+- **`MigrationAnalyzer` 读不到文件时裸 `return;` 静默跳过**（P2）：
+  报告会写成「发现 0 处」，让人误以为已迁移干净。改为收集跳过清单并在扫描结束后
+  `log.warn` 汇总（单文件读不了不该中断整轮扫描，故保留跳过行为）。
+
+### Fixed — 编译告警台账（`-Xlint:all`，24 → 0）
+- **两处 `[this-escape]`**（P1，JDK 21 才有）：
+  - `config/DefaultConfigEnvironment`：构造器里调 `setActiveProfiles`/`addAll` 等**可覆写**方法，
+    在子类（或 AOP 代理子类）构造完成前就把 `this` 交出去 —— jvfault 的 AOP 用 ByteBuddy
+    生成子类代理，代理字段在父类构造器跑完前还没初始化。
+    修法：装配动作挪到静态辅助方法、在另一个实例上完成，结果经新增的
+    `protected ConfigurableEnvironment(sources, profiles)` 构造器（不可覆写）交给父类。
+  - `microservices/InMemoryTransport`：构造器里 `new Thread(this::drainEvents)` 让 `this`
+    在构造完成前被另一对象捕获。线程改到 `bind()` 创建并做幂等（顺带修掉重复 `bind()`
+    会二次 `start()` 抛 `IllegalThreadStateException`）；`close()` 加 null 守卫。
+- `[cast]` 冗余强转 ×3（`DefaultBeanRegistry` ×2、`ProxyFactory` ×1）。
+- `[unchecked]` 泛型 ×2：`JwtGuard` / `JsonPropertySource` 的 `readValue(x, Map.class)`
+  改用 `TypeReference<Map<String,Object>>`；`ValidationException` 形参放宽为
+  `Set<? extends ConstraintViolation<?>>`，消除调用点的双重强转。
+- **上游废弃 API ×10**（P3）：Jackson `asText(String)`→`textValue()` ×10、
+  Lettuce `setDefaultTimeout(Duration)`→`RedisURI.setTimeout()` ×2、
+  GraphQL `Builder.context(Object)`→`graphQLContext(Map)` ×1。
+  均按上游替代方案改，**未用 `@SuppressWarnings` 压制**。
+
+### Fixed — 平台默认 Locale
+- `openapi/OpenApiGenerator` 的 `getHttpMethod().toLowerCase()` → `Locale.ROOT`：
+  OpenAPI 3.0 的 paths 键必须规范小写，土耳其语下 `OPTIONS`→`optıons`，下游工具认不出该 method。
+- `core/BeanDefinition` 的 `parseScope` 里 `scope.toUpperCase()` → `Locale.ROOT`：
+  实测 `"singleton".toUpperCase(tr_TR)` = `"SİNGLETON"`（i → İ）。
+  **诚实说明**：目前三个作用域里只有 `SINGLETON` 含 i，而解析失败恰好也退回 `SINGLETON`，
+  因此**暂时观察不到**错误行为；这是隐患提前排除，一旦新增含 i 且回退值不同的作用域就会静默降级。
+- 新增**非空洞**回归测试 `OpenApiLocaleIndependenceTest`：先断言
+  `"OPTIONS".toLowerCase() == "optıons"`（证明环境真会触发缺陷），再断言生成的键是 `options`；
+  **对照实验**：撤掉修复后实测 `FAILED`，恢复后转绿。`finally` 还原 Locale。
+
+### Changed
+- 精简 6 个文件的冗长注释（只留一行要点），删除 `JsonWriter` 4 行自我辩解注释（该处代码未改动）。
+- POM url 从不存在的 `github.com/jvfault/jvfault` → **`github.com/rwxbot/jvfault`**
+  （`build.gradle.kts` + `distribution/build.gradle.kts`）。
+- `transport-tcp` 的 `TcpMessageFraming` 移到 **test 源集**（`tryUnframe()` 只被测试用到，
+  生产走 `TcpTransportServer` 自己的 `readInt()`+`readFully()`）；
+  `MAX_FRAME` 挪到 `TcpWireMessage`（main 源集的共享位置）。
+- `distribution` BOM 移除 `api(project(":tests"))` —— `tests` 是跨模块验收模块，不发布。
+
+### 判定为「不修」并说明理由
+- `JsonWriter` / `TraceContext` 的 `String.format("%04x"/"%02x")` 曾被规则命中。
+  **实测证伪**：JDK 21 下 tr_TR / hi-IN-u-nu-deva / ar-SA-u-nu-arab 三种 Locale 都输出
+  ASCII 十六进制，**不受 Locale 影响** → 判误报，不加无依据的 `Locale.ROOT`
+  （否则代码里留下理由不成立的注释，比不修更糟）。规则已相应改精确（只认 `%d/%f/%e/%g/%a`）。
+
+---
+
+## [v1.0.15] - core 真正的 REQUEST 作用域 + NPE 守卫 + 注册碰撞防护（2026-10-01）
+
+### Fixed
+- **REQUEST 作用域宣称与实现不符**（此前实际等同单例，会跨请求串号）：
+  core 改用 ThreadLocal 请求作用域栈实现「每请求一实例」；无活动作用域解析时 fail-fast
+  （不再退化成单例串号）；退域触发 `@PreDestroy` / `destroyMethod`。
+  桥接 `JvfaultBeanBridge.isSingleton` 改为 `registry.isSingleton`，REQUEST 不再被 Spring 当单例缓存。
+- `JvfaultApplication.createContainer(cls, null, ...)` 会 NPE：`basePackages` 加 null 守卫，
+  `rootModuleClass` 空校验抛 `IllegalArgumentException`。
+- `DefaultBeanRegistry.registerSingleton` 重复注册静默覆盖：同名且**不同**实例重复注册抛
+  `IllegalStateException`；同名**同**实例幂等放行。
+- 单例创建「检查→创建→缓存」的 check-then-act 竞态：加原子锁；并纠正 Javadoc 三级缓存的错误描述。
+
+### Changed
+- 测试总数 300 → **308**（新增桥接边界用例：撞名 fail-fast / REQUEST 作用域现状 / 生命周期计数）。
+
+---
+
+## [v1.0.14] - 引擎现代化（基线 Java 8→17）+ spring-boot-starter 双向桥接（2026-10-01）
+
+### Changed — 引擎现代化（对齐主流 SDK）
+- **根基线 Java 8 → 17**：根 `build.gradle.kts` 的 `options.release` 由 `8` 改为 `17`，
+  对齐 Spring Boot 3 / Jakarta EE 10 的 floor；虚拟线程模块仍按 21 编译。
+  移除已无用的 `scripts/java8-runtime-smoke`（基线不再是 8）。
+- **Caffeine 2.9.3 → 3.1.8**：`cache/build.gradle.kts`，与 Spring Boot 3 托管版本一致。
+- **validation 引擎换血**：自研 JSR-380 子集反射引擎 →
+  **Jakarta Validation 3.0.2 + Hibernate Validator 8.0.1 + Jakarta EL（expressly 5.0.0）**，
+  即 Spring Boot 3 / Quarkus / Jakarta EE 同一套校验栈。删除自研 `constraint/*` 注解与反射引擎，
+  约束注解改用 `jakarta.validation.constraints.*`；保留 `Validator` / `ValidationEngine` /
+  `ConstraintViolation` / `ValidationException` 门面 API。
+- README 去 Java 8 口径，新增「对齐主流 SDK」小节。
+
+> 坑：Hibernate Validator 默认消息随 JVM locale 本地化（中文「不能为null」），
+> validation 测试已固定 `Locale.ENGLISH`；自定义消息建议用命名占位符 `{min}`/`{max}`。
+
+### Added — spring-boot-starter 双向桥接
+- **反向注入（Spring → jvfault）**：`jvfault.import-spring-beans`（默认 false，显式 opt-in）
+  + `@JvfaultComponent` 标记注解。必须在 `container.refresh()` **之前**登记
+  （jvfault 的 `@Inject` 解析发生在 `initializeSingletons()`，即 refresh 第 5 步）。
+- **正向暴露（jvfault → Spring）**：用「BeanDefinition + 委托 FactoryBean」，
+  类型可见靠 `setTargetType`（**不能用 `setBeanClass(实际类型)`**，会 ClassCastException）。
+- 示例工程 `examples/spring-boot-bridge`（Spring Boot 3.2.5），`web=NONE` 测试。
+
+> 已知架构性限制：用户 bean 先于 autoconfig bean 实例化，jvfault bean 要等 autoconfig `@Bean`
+> 执行时才登记，而 `preInstantiateSingletons()` 遍历的是 beanDefinitionNames **快照**。
+> 消费方需用 `@DependsOn("jvfaultModuleContainer")` / `@Lazy` / `ObjectProvider`。
 
 ---
 
