@@ -13,7 +13,7 @@
 - 13 个 git commit（每个版本一个）+ 12 个 tag（v0.1.0 ~ v1.0.0 全含）
 - **274 测试 0 失败**（含 7 个 Jetty+JWT 端到端 + 真实集成：3 redis + 3 kafka + 3 rabbitmq + 3 nats + 3 mqtt + 3 grpc；skip 数随本地 broker 浮动）
 - 40 个构件已实测发布到本地 m2（`./gradlew publishToMavenLocal`）
-- 远程仓库：`git@github.com:rwx-robot/jvfault.git`（仅 main 分支，身份 johnnynode <johnnynode@gmail.com>）
+- 远程仓库：`git@github.com:rwxbot/jvfault.git`（仅 main 分支，身份 johnnynode <johnnynode@gmail.com>）
 
 ### 1.1 第二轮（2026-09-22 晚）修复与补全
 
@@ -78,7 +78,7 @@ JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew :transport-redis:test
 # 测试通过时实际启动 redis:7.2-alpine 容器跑 psubscribe+replyChannel+error 头全链路
 
 # 强推远程（用户偏好：直接覆盖）
-git remote add origin git@github.com:rwx-robot/jvfault.git
+git remote add origin git@github.com:rwxbot/jvfault.git
 git push --force -u origin main
 git push --force origin --tags
 ```
@@ -182,7 +182,7 @@ v1.0.0 后可做 `jvfault-spring-boot-starter`（自动配置、@SpringBootAppli
 
 ## 9. 联系方式
 
-- 框架 GitHub：https://github.com/rwx-robot/jvfault
+- 框架 GitHub：https://github.com/rwxbot/jvfault
 - git 身份：johnnynode <johnnynode@gmail.com>
 - 父 monorepo（workspace）：`/Users/Wang/Code/webfault-lib/jvfault-all/`
 

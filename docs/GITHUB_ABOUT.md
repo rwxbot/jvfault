@@ -1,4 +1,4 @@
-# `rwx-robot/jvfault` GitHub About 描述
+# `rwxbot/jvfault` GitHub About 描述
 
 GitHub 仓库的 "About" 字段建议设置（限 350 字符以内；下面三个候选，从短到长）：
 
@@ -33,7 +33,7 @@ apache-2-0
 ## 配套：Homepage URL
 
 ```
-https://github.com/rwx-robot/jvfault#readme
+https://github.com/rwxbot/jvfault#readme
 ```
 
 （指向 README，不指向 wiki）
@@ -41,29 +41,29 @@ https://github.com/rwx-robot/jvfault#readme
 ## 如何应用
 
 **方式一：GitHub Web UI（推荐，无需任何 token）**
-1. 打开 https://github.com/rwx-robot/jvfault
+1. 打开 https://github.com/rwxbot/jvfault
 2. 右侧 About 区点击 ⚙️ 图标
 3. 粘贴 Description + 添加 Topics + 设 Homepage
 
 **方式二：gh CLI（需先 `brew install gh` + `gh auth login`）**
 ```bash
-gh repo edit rwx-robot/jvfault \
+gh repo edit rwxbot/jvfault \
   --description "现代模块化 Java 框架：IoC 容器 + 模块系统内核 ..."
 # topics 不能用 gh repo edit；改用 API
-gh api -X PATCH /repos/rwx-robot/jvfault \
-  -f homepage='https://github.com/rwx-robot/jvfault#readme' \
+gh api -X PATCH /repos/rwxbot/jvfault \
+  -f homepage='https://github.com/rwxbot/jvfault#readme' \
   -f description='...'
 # topics 走 PATCH /repos/.../topics
 ```
 
 **方式三：REST API（需 `repo` 权限 PAT）**
 ```bash
-curl -X PATCH https://api.github.com/repos/rwx-robot/jvfault \
+curl -X PATCH https://api.github.com/repos/rwxbot/jvfault \
   -H "Authorization: Bearer $GITHUB_TOKEN" \
   -H "Accept: application/vnd.github+json" \
   -d '{
     "description": "现代模块化 Java 框架：IoC 容器 + 模块系统内核 ...",
-    "homepage": "https://github.com/rwx-robot/jvfault#readme",
+    "homepage": "https://github.com/rwxbot/jvfault#readme",
     "topics": ["java", "java-8", "framework", "ioc", "dependency-injection", "modular", "jpms", "multi-release-jar", "microservices", "kafka", "grpc", "gradle", "junit5", "apache-2-0"]
   }'
 ```

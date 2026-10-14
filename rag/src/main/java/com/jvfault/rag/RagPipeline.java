@@ -6,8 +6,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * RAG 管道：检索 -> [重排] -> 生成上下文注入。
- * 对应 roadmap v0.11.0: Retrieve->Rerank->Generate
+ * RAG 管道：检索 → 生成上下文注入。
+ *
+ * <p>对应 roadmap v0.11.0 的 Retrieve→Rerank→Generate，但<b>重排（Rerank）阶段尚未实现</b>：
+ * {@link #retrieve(String)} 直接返回 {@link VectorStore#similaritySearch(float[], int)} 的结果，
+ * 未做二次排序。注意 {@link #buildContext(String)} 内部固定走 {@code retrieve()}，
+ * 不接受外部传入的命中列表 —— 需要重排时请自行对 {@code retrieve()} 的结果排序后拼接上下文。
  *
  * @since v0.11.0 (2025)
  * @author jvfault team

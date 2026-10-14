@@ -2,12 +2,13 @@
 
 > **Modern Modular Java Framework Architecture** — 注解驱动、模块化、类型安全的纯 Java 框架。
 > 基线 **Java 17**（`--release 17` 编译，与 Spring Boot 3 / Jakarta EE 10 同款 floor），遵循 JSR-330 / JSR-250 / SPI 标准，仅依赖少量成熟主流 SDK。
-> **注意**：虚拟线程模块需 JDK 21，AI 时代模块为 JDK 17 —— 详见下方「JDK 需求分层」。
+> **注意**：全模块默认 `--release 17`；仅 `virtualthreads` / `spring-boot-starter` / `examples/v0.8.0` 需 JDK 21
+> （虚拟线程与 Spring Boot 3）—— 详见下方「JDK 需求分层」。AI 栈（ai/rag/mcp）与默认基线一致，无特殊要求。
 
 [![Java](https://img.shields.io/badge/Java-17%2B-blue.svg)](https://openjdk.org/)
 [![Gradle](https://img.shields.io/badge/Gradle-8.x-green.svg)](https://gradle.org/)
 [![Tests](https://img.shields.io/badge/tests-310%20passing-brightgreen.svg)](#构建与测试)
-[![CI](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml)
+[![CI](https://github.com/rwxbot/jvfault/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rwxbot/jvfault/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/release-v1.0.16-blue.svg)](#)
 
@@ -78,9 +79,9 @@ cache       @Cacheable/@CacheEvict、多级缓存（Caffeine 3.x）
 plugin      插件 SPI：隔离 ClassLoader、依赖拓扑、生命周期
 apt         编译期 @Module 元数据生成（META-INF/jvfault/modules.txt）
 aot/native  GraalVM 反射配置生成与 native 提示
-ai/rag/mcp              ChatModel SPI、向量检索、MCP 服务器                 (JDK 17)
-compliance/migration    合规审计脱敏、迁移分析                               (JDK 17)
-ops                     健康检查、指标端点、优雅关闭                          (JDK 17)
+ai/rag/mcp              ChatModel SPI + OpenAI 兼容（含 SSE 流式）、RAG 管道、MCP 服务器
+compliance/migration    合规审计脱敏、迁移分析
+ops                     健康检查、指标端点、优雅关闭
 virtualthreads          虚拟线程执行器与结构化并发                            (JDK 21)
 spring-boot-starter      Spring Boot 3 自动配置桥接（可选插件，不传递 Spring 依赖）   (JDK 21)
 test        JUnit 5 扩展 (@TestModule + @Autowired)
@@ -94,12 +95,11 @@ tests       跨模块端到端套件（Jetty + JWT）
 
 | 需求 JDK | 模块 | 依据 |
 |:--------:|------|------|
-| **17**（默认） | core、web、security、logging、metrics、transport-\*、cache、scheduling、validation 等**其余全部** | 根 `build.gradle.kts` → `options.release = 17` |
+| **17**（默认） | core、web、security、logging、metrics、transport-\*、cache、scheduling、validation、**ai / rag / mcp**、compliance、migration、tests 等**其余全部** | 根 `build.gradle.kts` → `options.release = 17` |
 | **9** | 仅 `module-info.java` 编译层（产物落在 MR-JAR 的 `META-INF/versions/9/`） | JPMS 描述符自 JDK 9 起可用 |
-| **17** | `ai`、`rag`、`mcp`、`compliance`、`migration`、`tests` | 各自 `build.gradle.kts`（与默认一致） |
 | **21** | `virtualthreads`、`spring-boot-starter`、`examples/v0.8.0` | 依赖 Project Loom 虚拟线程 API / Spring Boot 3（按 21 编译） |
 
-> 全模块**聚合 Javadoc** 站点：`https://jvfault.github.io/jvfault/`（由 `.github/workflows/pages.yml`
+> 全模块**聚合 Javadoc** 站点：`https://rwxbot.github.io/jvfault/`（由 `.github/workflows/pages.yml`
 > 在 push 到 main 且 Java/构建配置变更时自动构建并部署到 GitHub Pages）。
 > 本地预览：`./gradlew javadocAggregate` → 产物在 `build/docs/javadoc-aggregate`。
 
@@ -164,6 +164,18 @@ TZ=UTC ./gradlew clean build --no-daemon --no-build-cache
 `--no-build-cache` 是为了避免缓存命中掩盖问题。
 
 gRPC 无需外部服务：服务端以 `grpc-netty` 绑定随机端口（本机回环），集成测试直接与之通信。
+
+## 延伸文档
+
+| 文档 | 内容 |
+|------|------|
+| [docs/ai-stack.md](docs/ai-stack.md) | **AI 栈**（ai / rag / mcp）：ChatModel SPI、RAG 管道、MCP 服务器、用法示例与已知边界 |
+| [docs/architecture-decisions.md](docs/architecture-decisions.md) | 架构决策记录（ADR） |
+| [docs/NON_CLOSED_LOOP.md](docs/NON_CLOSED_LOOP.md) | 非闭环 / 未完成功能清单 |
+| [docs/PONYTAIL_AUDIT.md](docs/PONYTAIL_AUDIT.md) | ponytail 原则审计报告 |
+| [docs/GITHUB_ABOUT.md](docs/GITHUB_ABOUT.md) | GitHub About / Topics 配置 |
+| [CHANGELOG.md](CHANGELOG.md) | 版本变更 |
+| [TODO.md](TODO.md) | 剩余工作清单 |
 
 ## 工作区关系
 
